@@ -247,9 +247,21 @@ Window {
                         dataCanvas.requestPaint()
                     }
 
-                    QQC2.ScrollBar.horizontal: QQC2.ScrollBar { }
+                    QQC2.ScrollBar.horizontal: hScrollBar
                 }
             }
+        }
+
+        // Parented to the layout instead of the flickable so it gets its own
+        // row below the time-axis labels rather than overlaying them; the
+        // attached property above keeps it synced with the flickable.
+        QQC2.ScrollBar {
+            id: hScrollBar
+            Layout.fillWidth: true
+            Layout.leftMargin: yAxisCanvas.width
+            orientation: Qt.Horizontal
+            policy: flick.contentWidth > flick.width
+                    ? QQC2.ScrollBar.AlwaysOn : QQC2.ScrollBar.AsNeeded
         }
     }
 }
