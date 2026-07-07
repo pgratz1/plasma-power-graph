@@ -10,6 +10,7 @@
         "Description": "Displays battery power consumption over time as a graph",
         "Icon": "battery",
         "Id": "com.pgratz.powerGraph",
+        "License": "GPL-2.0-or-later",
         "Name": "Power Graph",
         "Version": "2.0"
     },

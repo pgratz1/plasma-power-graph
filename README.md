@@ -40,3 +40,7 @@ plasmoidviewer -a com.pgratz.powerGraph
 
 See `CLAUDE.md` and `AGENTS.md` for architecture notes and Plasma 6 / Qt 6
 conventions used in this codebase.
+
+## License
+
+GPL-2.0-or-later — see [LICENSE](LICENSE).
