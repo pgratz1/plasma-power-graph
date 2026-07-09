@@ -17,15 +17,19 @@ Window {
 
     readonly property real peakW: {
         var h = hist
-        var m = 0
-        for (var i = 0; i < h.length; i++) {
+        if (h.length === 0) return 0
+        var m = h[0].w
+        for (var i = 1; i < h.length; i++) {
             if (h[i].w > m) m = h[i].w
         }
         return m
     }
-    // Same auto-scale rule as the panel graph: peak + 15% headroom, 10 W floor
+    // Same auto-scale rule as the panel graph: discharge positive, charge
+    // negative — peak + 15% headroom with a 10 W floor above zero, and the
+    // deepest charging sample + 15% headroom below (0 when never charging).
     readonly property real maxVal: Math.max(10, peakW) * 1.15
-    readonly property real gridStep: niceStep(maxVal / 4)
+    readonly property real minVal: Math.min(0, minW) * 1.15
+    readonly property real gridStep: niceStep((maxVal - minVal) / 4)
 
     readonly property real avgW: {
         var h = hist
@@ -49,6 +53,12 @@ Window {
         var norm = raw / mag
         var n = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10
         return n * mag
+    }
+
+    // Shared watts→y transform for both canvases (their plot heights match,
+    // but each passes its own so it stays self-contained)
+    function yFor(v, plotH) {
+        return plotH * (maxVal - v) / (maxVal - minVal)
     }
 
     function fmtWatts(v) {
@@ -138,8 +148,11 @@ Window {
                     ctx.font = "10px " + Kirigami.Theme.defaultFont.family
                     ctx.textAlign = "right"
                     ctx.textBaseline = "middle"
-                    for (var v = 0; v < win.maxVal; v += win.gridStep) {
-                        var y = plotH - (v / win.maxVal) * plotH
+                    // Integer multiples of gridStep so 0 lands exactly on 0
+                    // (accumulating v += gridStep drifts and can label "-0.0")
+                    for (var k = Math.ceil(win.minVal / win.gridStep); k * win.gridStep < win.maxVal; k++) {
+                        var v = k * win.gridStep
+                        var y = win.yFor(v, plotH)
                         var label = (win.gridStep >= 1 ? v.toFixed(0) : v.toFixed(1)) + " W"
                         ctx.fillText(label, width - 6, Math.max(y, 6))
                     }
@@ -171,11 +184,13 @@ Window {
                         var hc = Kirigami.Theme.highlightColor
 
                         // horizontal gridlines (position-independent, so they
-                        // can be drawn in viewport coordinates)
-                        ctx.strokeStyle = Qt.rgba(tc.r, tc.g, tc.b, 0.15)
+                        // can be drawn in viewport coordinates); the zero line
+                        // is emphasized when charging data pulls the axis down
                         ctx.lineWidth = 1
-                        for (var v = 0; v < win.maxVal; v += win.gridStep) {
-                            var gy = plotH - (v / win.maxVal) * plotH
+                        for (var g = Math.ceil(win.minVal / win.gridStep); g * win.gridStep < win.maxVal; g++) {
+                            var gy = win.yFor(g * win.gridStep, plotH)
+                            ctx.strokeStyle = Qt.rgba(tc.r, tc.g, tc.b,
+                                (g === 0 && win.minVal < 0) ? 0.35 : 0.15)
                             ctx.beginPath()
                             ctx.moveTo(0, gy)
                             ctx.lineTo(width, gy)
@@ -190,17 +205,27 @@ Window {
                         var first = Math.max(0, Math.floor(offset / px) - 1)
                         var last = Math.min(h.length - 1, Math.ceil((offset + width) / px) + 1)
 
-                        // filled area under the line
+                        // filled area between the line and the zero baseline;
+                        // a single closed path is correct across zero
+                        // crossings (nonzero winding)
+                        var zeroY = win.yFor(0, plotH)
                         ctx.beginPath()
-                        ctx.moveTo(first * px - offset, plotH)
+                        ctx.moveTo(first * px - offset, zeroY)
                         for (var i = first; i <= last; i++) {
-                            ctx.lineTo(i * px - offset, plotH - (h[i].w / win.maxVal) * plotH)
+                            ctx.lineTo(i * px - offset, win.yFor(h[i].w, plotH))
                         }
-                        ctx.lineTo(last * px - offset, plotH)
+                        ctx.lineTo(last * px - offset, zeroY)
                         ctx.closePath()
+                        // fade toward the zero line from both extremes;
+                        // collapses to the original two-stop gradient when
+                        // there is no charging data
+                        var zf = zeroY / plotH
                         var grad = ctx.createLinearGradient(0, 0, 0, plotH)
                         grad.addColorStop(0, Qt.rgba(hc.r, hc.g, hc.b, 0.55))
-                        grad.addColorStop(1, Qt.rgba(hc.r, hc.g, hc.b, 0.05))
+                        grad.addColorStop(zf, Qt.rgba(hc.r, hc.g, hc.b, 0.05))
+                        if (zf < 1) {
+                            grad.addColorStop(1, Qt.rgba(hc.r, hc.g, hc.b, 0.55))
+                        }
                         ctx.fillStyle = grad
                         ctx.fill()
 
@@ -208,7 +233,7 @@ Window {
                         ctx.beginPath()
                         for (var k = first; k <= last; k++) {
                             var lx = k * px - offset
-                            var ly = plotH - (h[k].w / win.maxVal) * plotH
+                            var ly = win.yFor(h[k].w, plotH)
                             if (k === first) ctx.moveTo(lx, ly)
                             else ctx.lineTo(lx, ly)
                         }

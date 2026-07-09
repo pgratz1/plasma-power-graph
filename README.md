@@ -1,12 +1,16 @@
 # Power Graph
 
 A KDE Plasma 6 panel widget that displays a live scrolling graph of battery
-power consumption in watts, with the current draw overlaid as text.
+power in watts, with the current draw overlaid as text. Discharging draw is
+plotted positive; charging power is plotted negative below a zero baseline,
+so plugging in dips the graph below zero.
 
 Clicking the widget opens a resizable history window with a horizontally
-scrollable graph (watt gridlines, time axis) and a stats bar showing
-current / average / min / max power over the retained history
-(~2 hours at the default 2 s polling interval).
+scrollable graph (watt gridlines including negative charging values, time
+axis) and a stats bar showing current / average / min / max power over the
+retained history (~2 hours at the default 2 s polling interval). Values are
+signed throughout: Min is the deepest charging power and Average is the net
+drain.
 
 ## Requirements
 
